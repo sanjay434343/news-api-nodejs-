@@ -5,18 +5,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { category, offset = '0', limit } = req.query;
+  const { category, offset = '0', limit = '10' } = req.query;
 
-  // Home/help message if category or limit is missing
-  if (!category || !limit) {
+  if (!category) {
     return res.status(200).json({
       message: '📰 Welcome to the Inshorts News API',
-      usage: '/api?category=<category>&offset=<offset>&limit=<limit>',
+      usage: '/api?category=top_stories&offset=0&limit=10',
       example: [
-        '/api?category=all&limit=100',
-        '/api?category=sports&offset=20&limit=50',
+        '/api?category=all',
+        '/api?category=business&offset=5&limit=10',
       ],
-      note: '⚠️ "category" and "limit" are required query params',
     });
   }
 
