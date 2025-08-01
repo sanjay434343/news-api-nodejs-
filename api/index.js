@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { category, offset = '0', limit = '10' } = req.query;
+  const { category, offset = '0', limit = '10', year } = req.query;
 
   if (!category) {
     return res.status(200).json({
@@ -14,24 +14,23 @@ export default async function handler(req, res) {
       example: [
         '/api?category=all',
         '/api?category=business&offset=5&limit=10',
+        '/api?category=technology&year=2023',
       ],
     });
   }
 
-  const currentYear = new Date().getFullYear();
-  let apiCategory = category === 'all' ? 'all_news' : category;
-  let allNews = [];
-  let apiOffset = parseInt(offset);
+  const targetYear = parseInt(year) || new Date().getFullYear();
+  const apiCategory = category === 'all' ? 'all_news' : category;
   const apiLimit = parseInt(limit);
+  let apiOffset = parseInt(offset);
+  let allNews = [];
 
   const headers = {
     'authority': 'inshorts.com',
     'accept': '*/*',
-    'accept-language': 'en-GB,en;q=0.5',
     'content-type': 'application/json',
     'referer': 'https://inshorts.com/en/read',
-    'user-agent':
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
   };
 
   while (allNews.length < apiLimit) {
@@ -47,22 +46,23 @@ export default async function handler(req, res) {
       for (const entry of newsList) {
         const news = entry.news_obj;
         const timestamp = news.created_at / 1000;
-        const dtUTC = new Date(timestamp * 1000);
+        const articleDate = new Date(timestamp * 1000);
 
-        if (dtUTC.getFullYear() !== currentYear) break;
+        // Skip articles not from the target year
+        if (articleDate.getFullYear() !== targetYear) continue;
 
-        const istDate = new Date(timestamp * 1000).toLocaleString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-        });
-
-        const formattedDate = dtUTC.toLocaleDateString('en-IN', {
+        const formattedDate = articleDate.toLocaleDateString('en-IN', {
           weekday: 'long',
           day: '2-digit',
           month: 'long',
           year: 'numeric',
+        });
+
+        const istTime = articleDate.toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
         });
 
         allNews.push({
@@ -73,25 +73,27 @@ export default async function handler(req, res) {
           content: news.content || '',
           author: news.author_name || '',
           date: formattedDate,
-          time: istDate.toLowerCase(),
+          time: istTime.toLowerCase(),
           readMoreUrl: news.source_url || '',
         });
 
         if (allNews.length >= apiLimit) break;
       }
 
+      // Stop if we fetched enough or there’s nothing more
       if (newsList.length < apiLimit) break;
       apiOffset += apiLimit;
     } catch (err) {
       console.error('Error fetching news:', err);
-      break;
+      return res.status(500).json({ error: 'Failed to fetch news data' });
     }
   }
 
   return res.status(200).json({
     success: !!allNews.length,
     category,
+    year: targetYear,
     data: allNews,
-    ...(allNews.length === 0 ? { error: 'No news found for this year' } : {}),
+    ...(allNews.length === 0 ? { error: `No news found for year ${targetYear}` } : {}),
   });
 }
