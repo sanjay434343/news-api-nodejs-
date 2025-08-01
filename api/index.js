@@ -19,10 +19,14 @@ export default async function handler(req, res) {
     });
   }
 
-  const targetYear = parseInt(year) || new Date().getFullYear();
   const apiCategory = category === 'all' ? 'all_news' : category;
   const apiLimit = parseInt(limit);
   let apiOffset = parseInt(offset);
+
+  const targetYears = year
+    ? [parseInt(year)]
+    : [new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2];
+
   let allNews = [];
 
   const headers = {
@@ -47,9 +51,10 @@ export default async function handler(req, res) {
         const news = entry.news_obj;
         const timestamp = news.created_at / 1000;
         const articleDate = new Date(timestamp * 1000);
+        const articleYear = articleDate.getFullYear();
 
-        // Skip articles not from the target year
-        if (articleDate.getFullYear() !== targetYear) continue;
+        // Skip articles not in target years
+        if (!targetYears.includes(articleYear)) continue;
 
         const formattedDate = articleDate.toLocaleDateString('en-IN', {
           weekday: 'long',
@@ -75,12 +80,12 @@ export default async function handler(req, res) {
           date: formattedDate,
           time: istTime.toLowerCase(),
           readMoreUrl: news.source_url || '',
+          rawTimestamp: timestamp,
         });
 
         if (allNews.length >= apiLimit) break;
       }
 
-      // Stop if we fetched enough or there’s nothing more
       if (newsList.length < apiLimit) break;
       apiOffset += apiLimit;
     } catch (err) {
@@ -89,11 +94,17 @@ export default async function handler(req, res) {
     }
   }
 
+  // Sort by timestamp descending (newest first)
+  allNews.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
+
+  // Remove rawTimestamp before returning
+  const finalNews = allNews.slice(0, apiLimit).map(({ rawTimestamp, ...rest }) => rest);
+
   return res.status(200).json({
-    success: !!allNews.length,
+    success: !!finalNews.length,
     category,
-    year: targetYear,
-    data: allNews,
-    ...(allNews.length === 0 ? { error: `No news found for year ${targetYear}` } : {}),
+    year: year || `Last 3 years (${targetYears.join(', ')})`,
+    data: finalNews,
+    ...(finalNews.length === 0 ? { error: 'No news found for selected year(s)' } : {}),
   });
 }
