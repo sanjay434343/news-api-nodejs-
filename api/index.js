@@ -5,27 +5,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { category, offset = '0', limit = '10', year } = req.query;
-
-  if (!category) {
-    return res.status(200).json({
-      message: '📰 Welcome to the Inshorts News API',
-      usage: '/api?category=top_stories&offset=0&limit=10',
-      example: [
-        '/api?category=all',
-        '/api?category=business&offset=5&limit=10',
-        '/api?category=technology&year=2023',
-      ],
-    });
-  }
-
-  const apiCategory = category === 'all' ? 'all_news' : category;
+  const { limit = '10', year } = req.query;
   const apiLimit = parseInt(limit);
-  let apiOffset = parseInt(offset);
+  let apiOffset = 0;
 
+  // Target years: specific or last 3 years
+  const currentYear = new Date().getFullYear();
   const targetYears = year
     ? [parseInt(year)]
-    : [new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2];
+    : [currentYear, currentYear - 1, currentYear - 2];
 
   let allNews = [];
 
@@ -38,7 +26,7 @@ export default async function handler(req, res) {
   };
 
   while (allNews.length < apiLimit) {
-    const apiUrl = `https://inshorts.com/api/en/news?category=${apiCategory}&max_limit=${apiLimit}&include_card_data=true&offset=${apiOffset}`;
+    const apiUrl = `https://inshorts.com/api/en/news?category=all_news&max_limit=${apiLimit}&include_card_data=true&offset=${apiOffset}`;
 
     try {
       const response = await fetch(apiUrl, { headers });
@@ -53,7 +41,6 @@ export default async function handler(req, res) {
         const articleDate = new Date(timestamp * 1000);
         const articleYear = articleDate.getFullYear();
 
-        // Skip articles not in target years
         if (!targetYears.includes(articleYear)) continue;
 
         const formattedDate = articleDate.toLocaleDateString('en-IN', {
@@ -94,15 +81,14 @@ export default async function handler(req, res) {
     }
   }
 
-  // Sort by timestamp descending (newest first)
+  // Sort by newest
   allNews.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
 
-  // Remove rawTimestamp before returning
+  // Trim and clean output
   const finalNews = allNews.slice(0, apiLimit).map(({ rawTimestamp, ...rest }) => rest);
 
   return res.status(200).json({
     success: !!finalNews.length,
-    category,
     year: year || `Last 3 years (${targetYears.join(', ')})`,
     data: finalNews,
     ...(finalNews.length === 0 ? { error: 'No news found for selected year(s)' } : {}),
