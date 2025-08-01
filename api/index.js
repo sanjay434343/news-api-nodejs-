@@ -1,23 +1,28 @@
-// File: api/news.js
-import express from 'express';
 import fetch from 'node-fetch';
-import cors from 'cors';
-import crypto from 'crypto';
-import { createServer } from 'http';
 
-const app = express();
-app.use(cors());
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
-app.get('/api/news', async (req, res) => {
-  const { limit = '10', year } = req.query;
+  const { category, offset = '0', limit = '10', year } = req.query;
+
+  if (!category) {
+    return res.status(200).json({
+      message: '📰 Welcome to the Inshorts News API',
+      usage: '/api?category=top_stories&offset=0&limit=10',
+      example: [
+        '/api?category=all',
+        '/api?category=business&offset=5&limit=10',
+        '/api?category=technology&year=2023',
+      ],
+    });
+  }
+
+  const targetYear = parseInt(year) || new Date().getFullYear();
+  const apiCategory = category === 'all' ? 'all_news' : category;
   const apiLimit = parseInt(limit);
-  let apiOffset = 0;
-
-  const currentYear = new Date().getFullYear();
-  const targetYears = year
-    ? [parseInt(year)]
-    : [currentYear, currentYear - 1, currentYear - 2];
-
+  let apiOffset = parseInt(offset);
   let allNews = [];
 
   const headers = {
@@ -25,11 +30,11 @@ app.get('/api/news', async (req, res) => {
     'accept': '*/*',
     'content-type': 'application/json',
     'referer': 'https://inshorts.com/en/read',
-    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64)',
+    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
   };
 
   while (allNews.length < apiLimit) {
-    const apiUrl = `https://inshorts.com/api/en/news?category=all_news&max_limit=${apiLimit}&include_card_data=true&offset=${apiOffset}`;
+    const apiUrl = `https://inshorts.com/api/en/news?category=${apiCategory}&max_limit=${apiLimit}&include_card_data=true&offset=${apiOffset}`;
 
     try {
       const response = await fetch(apiUrl, { headers });
@@ -42,9 +47,9 @@ app.get('/api/news', async (req, res) => {
         const news = entry.news_obj;
         const timestamp = news.created_at / 1000;
         const articleDate = new Date(timestamp * 1000);
-        const articleYear = articleDate.getFullYear();
 
-        if (!targetYears.includes(articleYear)) continue;
+        // Skip articles not from the target year
+        if (articleDate.getFullYear() !== targetYear) continue;
 
         const formattedDate = articleDate.toLocaleDateString('en-IN', {
           weekday: 'long',
@@ -70,12 +75,12 @@ app.get('/api/news', async (req, res) => {
           date: formattedDate,
           time: istTime.toLowerCase(),
           readMoreUrl: news.source_url || '',
-          rawTimestamp: timestamp,
         });
 
         if (allNews.length >= apiLimit) break;
       }
 
+      // Stop if we fetched enough or there’s nothing more
       if (newsList.length < apiLimit) break;
       apiOffset += apiLimit;
     } catch (err) {
@@ -84,18 +89,11 @@ app.get('/api/news', async (req, res) => {
     }
   }
 
-  allNews.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
-  const finalNews = allNews.slice(0, apiLimit).map(({ rawTimestamp, ...rest }) => rest);
-
   return res.status(200).json({
-    success: !!finalNews.length,
-    year: year || `Last 3 years (${targetYears.join(', ')})`,
-    data: finalNews,
-    ...(finalNews.length === 0 ? { error: 'No news found for selected year(s)' } : {}),
+    success: !!allNews.length,
+    category,
+    year: targetYear,
+    data: allNews,
+    ...(allNews.length === 0 ? { error: `No news found for year ${targetYear}` } : {}),
   });
-});
-
-// Vercel-compatible export
-export default function handler(req, res) {
-  return app(req, res);
 }
