@@ -2,9 +2,9 @@
   "name": "inshorts-news-api",
   "version": "1.0.0",
   "type": "module",
-  "main": "api.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node api.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "crypto": "^1.0.1",
