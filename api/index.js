@@ -1,15 +1,18 @@
+import express from 'express';
 import fetch from 'node-fetch';
+import cors from 'cors';
+import crypto from 'crypto';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+const app = express();
+const PORT = process.env.PORT || 3000;
 
+app.use(cors());
+
+app.get('/api/news', async (req, res) => {
   const { limit = '10', year } = req.query;
   const apiLimit = parseInt(limit);
   let apiOffset = 0;
 
-  // Target years: specific or last 3 years
   const currentYear = new Date().getFullYear();
   const targetYears = year
     ? [parseInt(year)]
@@ -22,7 +25,7 @@ export default async function handler(req, res) {
     'accept': '*/*',
     'content-type': 'application/json',
     'referer': 'https://inshorts.com/en/read',
-    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64)',
   };
 
   while (allNews.length < apiLimit) {
@@ -81,10 +84,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // Sort by newest
   allNews.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
-
-  // Trim and clean output
   const finalNews = allNews.slice(0, apiLimit).map(({ rawTimestamp, ...rest }) => rest);
 
   return res.status(200).json({
@@ -93,4 +93,8 @@ export default async function handler(req, res) {
     data: finalNews,
     ...(finalNews.length === 0 ? { error: 'No news found for selected year(s)' } : {}),
   });
-}
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
