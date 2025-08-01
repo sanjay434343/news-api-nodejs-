@@ -1,11 +1,11 @@
+// File: api/news.js
 import express from 'express';
 import fetch from 'node-fetch';
 import cors from 'cors';
 import crypto from 'crypto';
+import { createServer } from 'http';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(cors());
 
 app.get('/api/news', async (req, res) => {
@@ -95,6 +95,7 @@ app.get('/api/news', async (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
+// Vercel-compatible export
+export default function handler(req, res) {
+  return app(req, res);
+}
