@@ -1,15 +1,7 @@
 {
-  "name": "inshorts-news-api",
-  "version": "1.0.0",
+  "name": "inshorts-api",
   "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "dependencies": {
-    "crypto": "^1.0.1",
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2",
-    "cors": "^2.8.5"
+    "node-fetch": "^3.3.2"
   }
 }
