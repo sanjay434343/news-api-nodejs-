@@ -1,23 +1,14 @@
 import fetch from 'node-fetch';
+import crypto from 'crypto';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { category, offset = '0', limit = '10', year } = req.query;
+  res.setHeader('Access-Control-Allow-Origin', '*');
 
-  if (!category) {
-    return res.status(200).json({
-      message: '📰 Welcome to the Inshorts News API',
-      usage: '/api?category=top_stories&offset=0&limit=10',
-      example: [
-        '/api?category=all',
-        '/api?category=business&offset=5&limit=10',
-        '/api?category=technology&year=2023',
-      ],
-    });
-  }
+  const { category = 'all', offset = '0', limit = '10', year } = req.query;
 
   const targetYear = parseInt(year) || new Date().getFullYear();
   const apiCategory = category === 'all' ? 'all_news' : category;
@@ -48,7 +39,7 @@ export default async function handler(req, res) {
         const timestamp = news.created_at / 1000;
         const articleDate = new Date(timestamp * 1000);
 
-        // Skip articles not from the target year
+        // Skip if not from target year
         if (articleDate.getFullYear() !== targetYear) continue;
 
         const formattedDate = articleDate.toLocaleDateString('en-IN', {
@@ -80,11 +71,10 @@ export default async function handler(req, res) {
         if (allNews.length >= apiLimit) break;
       }
 
-      // Stop if we fetched enough or there’s nothing more
       if (newsList.length < apiLimit) break;
       apiOffset += apiLimit;
     } catch (err) {
-      console.error('Error fetching news:', err);
+      console.error('❌ Error fetching news:', err);
       return res.status(500).json({ error: 'Failed to fetch news data' });
     }
   }
